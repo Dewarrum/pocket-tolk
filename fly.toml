@@ -1,0 +1,21 @@
+# Drafted in slice 1, deployed in slice 3. Secrets (APP_TOKEN, ALLOWED_ORIGIN,
+# STT_API_KEY, ...) are set with `fly secrets set`, never here.
+app = "pocket-tolk"
+primary_region = "nrt"
+
+[build]
+  dockerfile = "backend/Dockerfile"
+
+[env]
+  PORT = "8080"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
