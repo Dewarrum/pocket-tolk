@@ -1,0 +1,9 @@
+.env
+.env.*
+!.env.example
+*-sa.json
+google-sa.json
+node_modules/
+dist/
+backend/bin/
+.DS_Store
