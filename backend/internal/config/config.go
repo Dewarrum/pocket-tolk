@@ -15,12 +15,21 @@ type Config struct {
 	ProviderTimeout time.Duration
 	MaxUploadBytes  int64
 	STT             STT
+	Translate       Translate
 }
 
 type STT struct {
 	BaseURL string
 	APIKey  string
 	Model   string
+}
+
+type Translate struct {
+	BaseURL       string
+	APIKey        string
+	Model         string
+	FallbackModel string
+	ContextTurns  int
 }
 
 // Load builds a Config from getenv, applying defaults. It reports every
@@ -61,6 +70,13 @@ func Load(getenv func(string) string) (Config, error) {
 			BaseURL: strings.TrimRight(optional("STT_BASE_URL", "https://api.groq.com/openai/v1"), "/"),
 			APIKey:  required("STT_API_KEY"),
 			Model:   optional("STT_MODEL", "whisper-large-v3-turbo"),
+		},
+		Translate: Translate{
+			BaseURL:       strings.TrimRight(optional("TRANSLATE_BASE_URL", "https://openrouter.ai/api/v1"), "/"),
+			APIKey:        required("TRANSLATE_API_KEY"),
+			Model:         optional("TRANSLATE_MODEL", "openai/gpt-6-luna"),
+			FallbackModel: optional("TRANSLATE_FALLBACK_MODEL", "anthropic/claude-haiku-5.5"),
+			ContextTurns:  positiveInt("TRANSLATE_CONTEXT_TURNS", 10),
 		},
 	}
 

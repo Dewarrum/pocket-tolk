@@ -14,6 +14,7 @@ import (
 	"github.com/Dewarrum/pocket-tolk/backend/internal/config"
 	"github.com/Dewarrum/pocket-tolk/backend/internal/httpapi"
 	"github.com/Dewarrum/pocket-tolk/backend/internal/stt"
+	"github.com/Dewarrum/pocket-tolk/backend/internal/translate"
 )
 
 func main() {
@@ -25,12 +26,16 @@ func main() {
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
 	srv := &http.Server{
-		Addr:              ":" + cfg.Port,
-		Handler:           httpapi.New(cfg, stt.New(cfg.STT, cfg.ProviderTimeout, log), log),
+		Addr: ":" + cfg.Port,
+		Handler: httpapi.New(cfg,
+			stt.New(cfg.STT, cfg.ProviderTimeout, log),
+			translate.New(cfg.Translate, cfg.ProviderTimeout, log),
+			log),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       2 * time.Minute,
-		WriteTimeout:      cfg.ProviderTimeout + 2*time.Minute,
-		IdleTimeout:       2 * time.Minute,
+		// A translation can take two provider calls plus a fallback for each.
+		WriteTimeout: 4*cfg.ProviderTimeout + 2*time.Minute,
+		IdleTimeout:  2 * time.Minute,
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -44,7 +49,8 @@ func main() {
 		_ = srv.Shutdown(shutdown)
 	}()
 
-	log.Info("listening", "port", cfg.Port, "sttModel", cfg.STT.Model)
+	log.Info("listening", "port", cfg.Port, "sttModel", cfg.STT.Model,
+		"translateModel", cfg.Translate.Model, "translateFallbackModel", cfg.Translate.FallbackModel)
 	if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 		log.Error("server stopped", "error", err.Error())
 		os.Exit(1)

@@ -14,16 +14,19 @@ import (
 
 	"github.com/Dewarrum/pocket-tolk/backend/internal/config"
 	"github.com/Dewarrum/pocket-tolk/backend/internal/stt"
+	"github.com/Dewarrum/pocket-tolk/backend/internal/translate"
 )
 
 const (
-	appToken = "test-token"
-	sttKey   = "sk-secret-key"
-	origin   = "https://app.example"
+	appToken     = "test-token"
+	sttKey       = "sk-secret-key"
+	translateKey = "sk-or-secret-key"
+	origin       = "https://app.example"
 )
 
-// newAPI returns the full handler wired to a fake STT provider.
-func newAPI(t *testing.T, provider http.HandlerFunc) http.Handler {
+// newAPI returns the full handler wired to one fake provider that serves both
+// the STT and the translation API. edit adjusts the config before wiring.
+func newAPI(t *testing.T, provider http.HandlerFunc, edit ...func(*config.Config)) http.Handler {
 	t.Helper()
 	fake := httptest.NewServer(provider)
 	t.Cleanup(fake.Close)
@@ -33,9 +36,14 @@ func newAPI(t *testing.T, provider http.HandlerFunc) http.Handler {
 		ProviderTimeout: 5 * time.Second,
 		MaxUploadBytes:  1 << 20,
 		STT:             config.STT{BaseURL: fake.URL, APIKey: sttKey, Model: "whisper-test"},
+		Translate: config.Translate{BaseURL: fake.URL, APIKey: translateKey,
+			Model: "primary-test", FallbackModel: "fallback-test", ContextTurns: 2},
+	}
+	for _, e := range edit {
+		e(&cfg)
 	}
 	log := slog.New(slog.DiscardHandler)
-	return New(cfg, stt.New(cfg.STT, cfg.ProviderTimeout, log), log)
+	return New(cfg, stt.New(cfg.STT, cfg.ProviderTimeout, log), translate.New(cfg.Translate, cfg.ProviderTimeout, log), log)
 }
 
 func send(h http.Handler, r *http.Request) (*httptest.ResponseRecorder, map[string]any) {
