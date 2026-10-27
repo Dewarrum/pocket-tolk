@@ -1,0 +1,176 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* Palette and type: docs/design-system.md. Dark follows prefers-color-scheme
+   (Tailwind's default media-based `dark:` variant). */
+
+:root {
+  --paper: #f4f6fa;
+  --sheet: #ffffff;
+  --ink: #172554;
+  --on-ink: #ffffff;
+  --slate: #566079;
+  --ochre: #a15c00;
+  --on-ochre: #ffffff;
+  --tally: #d62839;
+  --on-tally: #ffffff;
+  --signal: #2f5bff;
+  --wash: #e4e9f3;
+  --rule: #d3d9e5;
+  --field-border: #7c869c;
+
+  /* shadcn semantic tokens mapped onto the palette */
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: var(--sheet);
+  --card-foreground: var(--ink);
+  --popover: var(--sheet);
+  --popover-foreground: var(--ink);
+  --primary: var(--ink);
+  --primary-foreground: var(--on-ink);
+  --secondary: var(--wash);
+  --secondary-foreground: var(--ink);
+  --muted: var(--wash);
+  --muted-foreground: var(--slate);
+  --accent: var(--wash);
+  --accent-foreground: var(--ink);
+  --destructive: var(--ink);
+  --border: var(--rule);
+  --input: var(--field-border);
+  --ring: var(--signal);
+  --radius: 0.875rem;
+
+  color-scheme: light dark;
+  accent-color: var(--ink);
+
+  @media (prefers-color-scheme: dark) {
+    --paper: #0f1830;
+    --sheet: #17223f;
+    --ink: #e8ecf6;
+    --on-ink: #0f1830;
+    --slate: #a3adc4;
+    --ochre: #f2b04c;
+    --on-ochre: #0f1830;
+    --tally: #ff5161;
+    --on-tally: #1a0508;
+    --signal: #8fa6ff;
+    --wash: #1f2b4b;
+    --rule: #2c3858;
+    --field-border: #6b7899;
+  }
+}
+
+@theme inline {
+  --font-sans: "Atkinson Hyperlegible Next Variable", system-ui, sans-serif;
+  --font-heading: var(--font-sans);
+  /* Words people said: the OS font for the element's lang. */
+  --font-speech: ui-sans-serif, system-ui, sans-serif;
+
+  --color-paper: var(--paper);
+  --color-sheet: var(--sheet);
+  --color-ink: var(--ink);
+  --color-on-ink: var(--on-ink);
+  --color-slate: var(--slate);
+  --color-ochre: var(--ochre);
+  --color-on-ochre: var(--on-ochre);
+  --color-tally: var(--tally);
+  --color-on-tally: var(--on-tally);
+  --color-signal: var(--signal);
+  --color-wash: var(--wash);
+  --color-rule: var(--rule);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+
+  /* Bringhurst steps on Tailwind's size names (class mergers know them):
+     sm 14 hint, base 16 body, lg 18 controls, xl 21 transcript, 2xl 24 title, 4xl 36 translation */
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.45;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.3;
+  --text-xl: 1.3125rem;
+  --text-xl--line-height: 1.45;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 1.2;
+  --text-4xl: 2.25rem;
+  --text-4xl--line-height: 1.2;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+    font-size-adjust: from-font;
+    min-block-size: 100dvh;
+  }
+
+  /* Visible focus on every control: Signal ring, 2px offset. */
+  :where(a, button, input, textarea, select, [role="combobox"], [tabindex]):focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: 2px;
+  }
+
+  @supports not (font-size-adjust: from-font) {
+    body {
+      line-height: 1.55;
+    }
+  }
+}
+
+@layer components {
+  /* Anything a person said. Set lang on the element; dir="auto" for RTL. */
+  .speech {
+    font-family: var(--font-speech);
+    font-size-adjust: none;
+    font-weight: 400;
+    unicode-bidi: plaintext;
+  }
+
+  /* Korean wraps between words, not inside them. */
+  .speech:lang(ko) {
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+
+  /* shadcn overlays animate with tw-animate-css; skip it for reduced motion. */
+  @media (prefers-reduced-motion: reduce) {
+    [data-slot="dialog-overlay"],
+    [data-slot="dialog-content"],
+    [data-slot="select-content"] {
+      animation: none !important;
+    }
+  }
+}
