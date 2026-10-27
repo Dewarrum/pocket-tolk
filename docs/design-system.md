@@ -71,6 +71,30 @@ Token and new-session screens use the same bands: title and explanation at the t
 
 The record button. Idle, it is a wide Ink stadium with a microphone. Pressed, it grows across the dock into a Tally-red live strip that holds the stop square, the timer and a row of level bars that move with the voice, like the on-air lamp of an interpreter's booth. That morph and the bars are the only animation in the app (motion/react, springs off under `prefers-reduced-motion`, where the swap is instant and the bars update without easing). Everything around it stays quiet.
 
+## Slice 2: conversations and turns
+
+```
+home                                   session with turns
+┌────────────────────────────────────┐ ┌────────────────────────────────────┐
+│ Conversations                      │ │ ‹  [Русский] ⇄ [한국어]            │
+│ ────────────────────────────────── │ │ ┃ ● 한국어                          │
+│ [Русский] ⇄ [한국어]            ›  │ │ ┃ 언제 마지막으로 봤어요?   slate 16 │
+│ Today at 20:34                     │ │ ┃ Когда вы видели её       Ink 24   │
+│ ────────────────────────────────── │ │ ┃ ● Русский                         │
+│ Swipe a conversation left to       │ │ ┃ Около часа назад…                 │
+│ delete it.                         │ │ ┃ 약 한 시간 전에           Ink 36   │
+├────────────────────────────────────┤ ├────────────────────────────────────┤
+│ [ ＋ New conversation ]            │ │           ╭── 🎙 ──╮               │
+└────────────────────────────────────┘ └────────────────────────────────────┘
+```
+
+- Home rows are text on the page between Rule hairlines, not cards: the pair's chips (the same chips as the session header) and the start time. Swiping a row left reveals Delete; native scroll snap does the gesture, and Tab reaches the button too. Delete is Ink, because red means the microphone is live. The confirmation is the same bottom-anchored dialog as leaving a conversation.
+- A turn is one block with a rule in the speaker's voice colour: the detected language (dot and native name), what was said (Slate, 16 px), and the translation in Ink with the target `lang`. The newest translation is 36 px for the person across the counter; older ones drop to 24 px so the history stays scannable.
+- Text in neither language gets a neutral rule and, in the language line's place, a question-mark marker: "Not recognised as Русский or 한국어. Translated into 한국어 as a best guess."
+- A failed translation shows on its turn: alert icon, "Not translated.", the reason, and an outline Retry. The dock stays ready for the next turn.
+- While translating, the turn holds the only spinner; the record button dims and the hint says to wait.
+- The first screen asks for the "server password" and says the provider keys never leave the server, so it no longer reads like an API-key prompt.
+
 ## Principles
 
 1. Every control lives in the dock under the thumb; the space above is for words.
@@ -105,3 +129,9 @@ Slice 1, looked at in a 390 × 844 viewport in light and dark:
 - Custom size names (`text-speech`) were silently dropped when combined with a text colour in `cn()`. Moved the scale onto Tailwind's names.
 - Korean transcripts broke inside words. Added `keep-all`.
 - The leave dialog sat in the middle of the screen, away from the thumb. Anchored it to the bottom.
+
+Slice 2, same viewport, light and dark:
+
+- While translating, the turn and the record strip both showed a spinner and "Translating…". The turn keeps the spinner (where the words will appear); the button now dims in place.
+- "Language not recognised" appeared twice on a turn, once as the language line and again under the translation. One marker now takes the language line's place.
+- Starting a conversation and going straight back left an empty row on the home list. Leaving a conversation without turns now drops it.

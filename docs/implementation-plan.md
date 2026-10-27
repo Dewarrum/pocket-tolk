@@ -10,7 +10,7 @@ Companion to `design.md`. Three slices, each ending in something you can use on 
 | Node 24 | slice 1 | done |
 | GitHub CLI logged in as Dewarrum | slice 1 | done |
 | Groq key in `~/.config/pocket-tolk/.env` | slice 1 | done |
-| OpenRouter key as `TRANSLATE_API_KEY` in the same file | slice 2 | pending |
+| OpenRouter key as `TRANSLATE_API_KEY` in the same file | slice 2 | done (2026-10-27) |
 | Google Cloud project, Text-to-Speech API enabled, service account JSON at `~/.config/pocket-tolk/google-sa.json` | slice 3 | pending |
 | Fly.io account and `flyctl` installed | slice 3 | pending |
 | Cloudflare account | slice 3 | pending |
