@@ -165,6 +165,33 @@
     overflow-wrap: anywhere;
   }
 
+  /* A row that swipes left to reveal its actions. Native scrolling does the
+     gesture: the row snaps fully open or shut, and excess scroll chains to
+     the page without the actions bouncing. */
+  .swipe-reveal {
+    display: grid;
+    grid-template-columns: 100% max-content;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    overscroll-behavior: auto;
+    overscroll-behavior: chain;
+  }
+
+  .swipe-reveal > :first-child {
+    scroll-snap-align: start;
+  }
+
+  .swipe-reveal > :last-child {
+    scroll-snap-align: end;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .swipe-reveal {
+      scroll-behavior: smooth;
+    }
+  }
+
   /* shadcn overlays animate with tw-animate-css; skip it for reduced motion. */
   @media (prefers-reduced-motion: reduce) {
     [data-slot="dialog-overlay"],

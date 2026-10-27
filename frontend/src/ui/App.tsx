@@ -1,26 +1,28 @@
 import { useCallback, useState } from 'react'
 import { domAnimation, LazyMotion } from 'motion/react'
-import type { Language } from '@/core/api'
-import { tokenStore } from '@/ui/client'
+import { toast } from 'sonner'
+import type { Session } from '@/core/store'
+import { store, tokenStore } from '@/ui/client'
 import { Toaster } from '@/ui/primitives/sonner'
+import { HomeScreen } from '@/ui/screens/HomeScreen'
 import { NewSessionScreen } from '@/ui/screens/NewSessionScreen'
 import { SessionScreen } from '@/ui/screens/SessionScreen'
 import { TokenScreen } from '@/ui/screens/TokenScreen'
 
-// Sessions live in memory in this slice; IndexedDB arrives with slice 2.
+type View = { name: 'home' } | { name: 'new' } | { name: 'session'; session: Session }
+
 export function App() {
   const [token, setToken] = useState(tokenStore.get)
   const [notice, setNotice] = useState<string>()
-  const [session, setSession] = useState<readonly [Language, Language] | null>(null)
-  const [lastPair, setLastPair] = useState<readonly [Language, Language]>()
+  const [view, setView] = useState<View>({ name: 'home' })
 
   const unauthorized = useCallback(() => {
     tokenStore.clear()
     setToken(null)
-    setNotice('The access token was not accepted. Enter it again.')
+    setNotice('The server password was not accepted. Enter it again.')
   }, [])
 
-  const leave = useCallback(() => setSession(null), [])
+  const home = useCallback(() => setView({ name: 'home' }), [])
 
   let screen
   if (!token) {
@@ -34,19 +36,29 @@ export function App() {
         }}
       />
     )
-  } else if (!session) {
+  } else if (view.name === 'home') {
+    screen = (
+      <HomeScreen
+        onOpen={(session) => setView({ name: 'session', session })}
+        onNew={() => setView({ name: 'new' })}
+        onUnauthorized={unauthorized}
+      />
+    )
+  } else if (view.name === 'new') {
     screen = (
       <NewSessionScreen
-        initial={lastPair}
+        onBack={home}
         onUnauthorized={unauthorized}
         onStart={(pair) => {
-          setLastPair(pair)
-          setSession(pair)
+          store
+            .createSession([pair[0].code, pair[1].code])
+            .then((session) => setView({ name: 'session', session }))
+            .catch(() => toast.error('The conversation could not be saved on this device.'))
         }}
       />
     )
   } else {
-    screen = <SessionScreen languages={session} onLeave={leave} onUnauthorized={unauthorized} />
+    screen = <SessionScreen key={view.session.id} session={view.session} onLeave={home} onUnauthorized={unauthorized} />
   }
 
   return (
