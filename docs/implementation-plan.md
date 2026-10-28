@@ -11,9 +11,10 @@ Companion to `design.md`. Three slices, each ending in something you can use on 
 | GitHub CLI logged in as Dewarrum | slice 1 | done |
 | Groq key in `~/.config/pocket-tolk/.env` | slice 1 | done |
 | OpenRouter key as `TRANSLATE_API_KEY` in the same file | slice 2 | done (2026-10-27) |
-| Google Cloud project, Text-to-Speech API enabled, service account JSON at `~/.config/pocket-tolk/google-sa.json` | slice 3 | pending |
-| Fly.io account and `flyctl` installed | slice 3 | pending |
-| Cloudflare account | slice 3 | pending |
+| Cartesia API key as `TTS_API_KEY` in the same file (replaces Google TTS, 2026-10-29) | slice 3 | done |
+| Cloudflare API token for CI as `CLOUDFLARE_API_TOKEN` in the same file (template "Edit Cloudflare Workers", includes Pages) | slice 3 CI | pending |
+| Fly.io account, card added, `flyctl` logged in | slice 3 | done 2026-10-29 |
+| Cloudflare account, `wrangler` logged in | slice 3 | done 2026-10-29 |
 
 ## Slice 1 — Record and transcribe
 
@@ -67,16 +68,17 @@ Verification
 Goal: the translation is spoken on the phone over HTTPS, deployed from `main`.
 
 Backend
-1. `internal/tts`: Google Cloud Text-to-Speech client, credentials from JSON string or path, voice from the table, mp3 output, `POST /api/speak`.
-2. Tests: speak handler with a fake TTS client, unknown language rejected.
+1. `internal/tts`: Cartesia client (`POST {TTS_BASE_URL}/tts/bytes`, bearer `TTS_API_KEY`, header `Cartesia-Version: 2026-08-14`, `model_id` = `TTS_MODEL`, voice id from the language table, `language` set to the base code, mp3 44.1 kHz 64 kbps), `POST /api/speak`; 422 `no_voice` for languages without a voice.
+2. Tests: speak handler against a fake Cartesia server (success, provider error, `no_voice`).
+2b. `TRANSLATE_REASONING_EFFORT` env var (default `minimal`) passed through to OpenRouter.
 3. Fly: `flyctl launch` with the drafted `fly.toml`, secrets set, auto-stop verified.
 
 Frontend
-4. Autoplay after Send with the iOS unlock pattern, replay button, `speechSynthesis` fallback when the request fails.
-5. Build-time API base URL; Cloudflare Pages project connected to the repo, `ALLOWED_ORIGIN` set to the Pages URL on Fly.
+4. Autoplay after Send with the iOS unlock pattern, replay button, `speechSynthesis` fallback when the request fails or returns `no_voice`.
+5. Build-time API base URL; Cloudflare Pages project `pocket-tolk` created with `wrangler pages project create` and deployed with `wrangler pages deploy frontend/dist`; `ALLOWED_ORIGIN` set to the Pages URL on Fly.
 
 CI
-6. `.github/workflows/deploy.yml`: Fly deploy on push to `main` with `FLY_API_TOKEN`.
+6. `.github/workflows/deploy.yml`: on push to `main`, Fly deploy with `FLY_API_TOKEN` (created with `flyctl tokens create deploy`) and Pages deploy with `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` once the token exists; until then the Pages deploy is run from the laptop.
 
 Verification
 - iPhone Safari: install the PWA, run a real Russian–Korean and English–Korean exchange, confirm playback starts without an extra tap, confirm Retry on a forced failure (wrong key), check Fly logs for the per-call lines.
