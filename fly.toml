@@ -1,5 +1,6 @@
-# Drafted in slice 1, deployed in slice 3. Secrets (APP_TOKEN, ALLOWED_ORIGIN,
-# STT_API_KEY, ...) are set with `fly secrets set`, never here.
+# Backend on Fly.io, deployed by .github/workflows/deploy.yml on push to main
+# (flyctl deploy --remote-only). Secrets (APP_TOKEN, ALLOWED_ORIGIN, STT_*,
+# TRANSLATE_*, TTS_*) are set with `flyctl secrets`, never here.
 app = "pocket-tolk"
 primary_region = "nrt"
 
