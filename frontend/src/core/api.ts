@@ -12,6 +12,35 @@ export interface Transcription {
   latencyMs: number
 }
 
+/** An earlier, translated turn sent as context. */
+export interface HistoryEntry {
+  /** A session language, or `other`. */
+  sourceLang: string
+  source: string
+  targetLang: string
+  translation: string
+}
+
+export interface Translation {
+  /** A session language, or `other` when the text was in neither. */
+  detectedLang: string
+  targetLang: string
+  translation: string
+  /** False when the language was not recognised and the target is a best guess. */
+  confident: boolean
+  model: string
+  latencyMs: number
+  usage: { input: number; output: number }
+}
+
+export interface TranslateInput {
+  languages: readonly [string, string]
+  text: string
+  /** Oldest first. */
+  history: HistoryEntry[]
+  signal?: AbortSignal
+}
+
 export interface TranscribeInput {
   audio: Blob
   languages: readonly [string, string]
@@ -72,6 +101,15 @@ export function createApiClient({ baseUrl = '', getToken, fetch: fetchImpl }: Ap
       if (hint?.trim()) form.append('hint', hint.trim())
       return request<Transcription>('/api/transcribe', { method: 'POST', body: form, signal })
     },
+
+    translate({ languages, text, history, signal }: TranslateInput) {
+      return request<Translation>('/api/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ languages, text, history }),
+        signal,
+      })
+    },
   }
 }
 
@@ -105,16 +143,19 @@ export function clipFileName(mimeType: string): string {
   return ext ? `clip.${ext}` : 'clip'
 }
 
-/** A sentence for the person holding the phone: what went wrong and what to do. */
-export function errorMessage(err: unknown): string {
+/**
+ * A sentence for the person holding the phone: what went wrong and what to do.
+ * `service` names the provider behind the call, for provider errors.
+ */
+export function errorMessage(err: unknown, service: 'speech' | 'translation' = 'speech'): string {
   if (!(err instanceof ApiError)) return 'Something went wrong. Try again.'
   switch (err.code) {
     case 'unauthorized':
-      return 'The access token was not accepted.'
+      return 'The server password was not accepted.'
     case 'network_error':
       return 'The server could not be reached. Check the connection and try again.'
     case 'provider_error':
-      return 'The speech service had a problem. Try again in a moment.'
+      return `The ${service} service had a problem. Try again in a moment.`
     case 'too_large':
       return 'The recording is too large to send. Record a shorter clip.'
     case 'bad_request':

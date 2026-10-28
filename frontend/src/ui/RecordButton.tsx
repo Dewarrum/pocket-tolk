@@ -5,13 +5,15 @@ import type { Meter } from '@/ui/useRecorder'
 import { cn } from '@/ui/lib/utils'
 import { formatElapsed } from '@/ui/voice'
 
-export type RecordMode = 'idle' | 'starting' | 'live' | 'busy'
+/** busy: working on the words (wide strip); waiting: nothing to press until the translation arrives. */
+export type RecordMode = 'idle' | 'starting' | 'live' | 'busy' | 'waiting'
 
 const labels: Record<RecordMode, string> = {
   idle: 'Start recording',
   starting: 'Starting the microphone',
   live: 'Stop recording',
   busy: 'Transcribing',
+  waiting: 'Start recording',
 }
 
 /**
@@ -38,7 +40,7 @@ export function RecordButton({
       <m.button
         type="button"
         onClick={onPress}
-        disabled={mode === 'busy' || mode === 'starting'}
+        disabled={mode === 'busy' || mode === 'starting' || mode === 'waiting'}
         aria-label={labels[mode]}
         aria-describedby={describedBy}
         initial={false}
@@ -49,6 +51,7 @@ export function RecordButton({
           'transition-colors duration-200 focus-visible:outline-offset-4 motion-reduce:transition-none',
           mode === 'live' ? 'bg-tally text-on-tally' : 'bg-ink text-on-ink',
           mode === 'starting' && 'opacity-70',
+          mode === 'waiting' && 'opacity-45',
         )}
       >
         {mode === 'live' && (
@@ -66,7 +69,9 @@ export function RecordButton({
             <span className="text-lg font-semibold whitespace-nowrap">Transcribing…</span>
           </>
         )}
-        {(mode === 'idle' || mode === 'starting') && <Mic aria-hidden className="size-9 shrink-0" strokeWidth={2.25} />}
+        {(mode === 'idle' || mode === 'starting' || mode === 'waiting') && (
+          <Mic aria-hidden className="size-9 shrink-0" strokeWidth={2.25} />
+        )}
       </m.button>
     </div>
   )

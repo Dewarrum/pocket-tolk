@@ -16,11 +16,11 @@ export function TokenScreen({ notice, onSaved }: { notice?: string; onSaved: (to
   async function submit(e: FormEvent) {
     e.preventDefault()
     const token = value.trim()
-    if (!token) return setError('Enter the access token.')
+    if (!token) return setError('Enter the server password.')
     setChecking(true)
     setError('')
     try {
-      // A cheap authenticated call proves the token before it is stored.
+      // A cheap authenticated call proves the password before it is stored.
       await createApiClient({ baseUrl: apiBaseUrl, getToken: () => token }).languages()
       onSaved(token)
     } catch (err) {
@@ -42,11 +42,12 @@ export function TokenScreen({ notice, onSaved }: { notice?: string; onSaved: (to
         <div className="flex flex-col gap-3">
           <h1 className="text-2xl font-bold">Pocket Tolk</h1>
           <p className="text-base text-slate">
-            Enter the access token for your Pocket Tolk server. It is kept on this device.
+            A shared password set on your server protects Pocket Tolk. The translation and speech keys never leave
+            the server; this device keeps only the password.
           </p>
         </div>
         <div className="mt-8 flex flex-col gap-2">
-          <Label htmlFor="token">Access token</Label>
+          <Label htmlFor="token">Server password</Label>
           <div className="relative">
             <Input
               id="token"
@@ -67,7 +68,7 @@ export function TokenScreen({ notice, onSaved }: { notice?: string; onSaved: (to
               variant="ghost"
               size="icon"
               className="absolute top-0 right-0 rounded-l-none"
-              aria-label={visible ? 'Hide token' : 'Show token'}
+              aria-label={visible ? 'Hide password' : 'Show password'}
               aria-pressed={visible}
               onClick={() => setVisible((v) => !v)}
             >

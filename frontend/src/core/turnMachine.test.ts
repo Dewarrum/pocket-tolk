@@ -37,9 +37,29 @@ describe('turnMachine', () => {
     expect(transition(failed, { type: 'cancel' })).toEqual({ status: 'review', text: 'kept' })
   })
 
+  it('sends the reviewed text, then lands in done or in a failure that retries the same turn', () => {
+    const translating = run({ status: 'review', text: ' Где она? ' }, { type: 'send', turnId: 't1' })
+    expect(translating).toEqual({ status: 'translating', turnId: 't1', text: 'Где она?' })
+    expect(transition(translating, { type: 'translated' })).toEqual({ status: 'done', turnId: 't1' })
+
+    const failed = transition(translating, { type: 'translationFailed', error: 'down' })
+    expect(failed).toEqual({ status: 'failed', stage: 'translate', turnId: 't1', text: 'Где она?', error: 'down' })
+    expect(transition(failed, { type: 'retry' })).toEqual(translating)
+    expect(transition(failed, { type: 'record' })).toEqual({ status: 'recording', base: null })
+  })
+
+  it('retranslates an older failed turn only when nothing else is in flight', () => {
+    const retranslate: TurnEvent = { type: 'retranslate', turnId: 't0', text: 'old' }
+    expect(transition({ status: 'done', turnId: 't1' }, retranslate)).toEqual({ status: 'translating', turnId: 't0', text: 'old' })
+    const busy: TurnState = { status: 'translating', turnId: 't1', text: 'new' }
+    expect(transition(busy, retranslate)).toBe(busy)
+  })
+
   it('ignores events that do not apply', () => {
     const transcribing: TurnState = { status: 'transcribing', base: null, clip }
+    const empty: TurnState = { status: 'review', text: '  ' }
     expect(transition(initialTurn, { type: 'stop', clip })).toBe(initialTurn)
     expect(transition(transcribing, { type: 'record' })).toBe(transcribing)
+    expect(transition(empty, { type: 'send', turnId: 't1' })).toBe(empty)
   })
 })
