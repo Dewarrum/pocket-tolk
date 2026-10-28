@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -15,23 +16,26 @@ import (
 	"github.com/Dewarrum/pocket-tolk/backend/internal/languages"
 	"github.com/Dewarrum/pocket-tolk/backend/internal/stt"
 	"github.com/Dewarrum/pocket-tolk/backend/internal/translate"
+	"github.com/Dewarrum/pocket-tolk/backend/internal/tts"
 )
 
 type server struct {
 	cfg       config.Config
 	stt       *stt.Client
 	translate *translate.Client
+	tts       *tts.Client
 	log       *slog.Logger
 }
 
 // New returns the API handler: logging, then CORS, then auth, then routes.
-func New(cfg config.Config, sttClient *stt.Client, translateClient *translate.Client, log *slog.Logger) http.Handler {
-	s := &server{cfg: cfg, stt: sttClient, translate: translateClient, log: log}
+func New(cfg config.Config, sttClient *stt.Client, translateClient *translate.Client, ttsClient *tts.Client, log *slog.Logger) http.Handler {
+	s := &server{cfg: cfg, stt: sttClient, translate: translateClient, tts: ttsClient, log: log}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/languages", s.languages)
 	mux.HandleFunc("POST /api/transcribe", s.transcribe)
 	mux.HandleFunc("POST /api/translate", s.translateText)
+	mux.HandleFunc("POST /api/speak", s.speak)
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, &apiError{http.StatusNotFound, "not_found", "no such endpoint"})
 	})
@@ -177,6 +181,62 @@ func (s *server) translateText(w http.ResponseWriter, r *http.Request) {
 		"latencyMs":    res.Latency.Milliseconds(),
 		"usage":        res.Usage,
 	})
+}
+
+// maxSpeakRunes caps the text of one speak call.
+const maxSpeakRunes = 1000
+
+type speakRequest struct {
+	Text string `json:"text"`
+	Lang string `json:"lang"`
+}
+
+func (s *server) speak(w http.ResponseWriter, r *http.Request) {
+	var in speakRequest
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&in); err != nil {
+		if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
+			writeError(w, &apiError{http.StatusRequestEntityTooLarge, "too_large", "the request is larger than the limit"})
+			return
+		}
+		writeError(w, badRequest("expected a JSON body"))
+		return
+	}
+	lang, ok := languages.Lookup(strings.TrimSpace(in.Lang))
+	if !ok {
+		writeError(w, &apiError{http.StatusBadRequest, "unsupported_language", "unsupported language code: " + in.Lang})
+		return
+	}
+	in.Text = strings.TrimSpace(in.Text)
+	switch {
+	case in.Text == "":
+		writeError(w, badRequest("text is empty"))
+		return
+	case utf8.RuneCountInString(in.Text) > maxSpeakRunes:
+		writeError(w, badRequest(fmt.Sprintf("text is longer than %d characters", maxSpeakRunes)))
+		return
+	}
+	// The client speaks these with the browser's own voice.
+	if lang.Voice == "" {
+		writeError(w, &apiError{http.StatusUnprocessableEntity, "no_voice", "there is no server voice for " + lang.Name})
+		return
+	}
+
+	res, err := s.tts.Speak(r.Context(), lang, in.Text)
+	if err != nil {
+		if pe, ok := errors.AsType[*tts.ProviderError](err); ok {
+			writeError(w, &apiError{http.StatusBadGateway, "provider_error", pe.Error()})
+			return
+		}
+		writeError(w, &apiError{http.StatusInternalServerError, "internal_error", "speech failed"})
+		return
+	}
+
+	h := w.Header()
+	h.Set("Content-Type", "audio/mpeg")
+	h.Set("Content-Length", strconv.Itoa(len(res.Audio)))
+	h.Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(res.Audio)
 }
 
 func checkText(field, text string) *apiError {

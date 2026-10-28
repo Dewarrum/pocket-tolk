@@ -15,6 +15,7 @@ import (
 	"github.com/Dewarrum/pocket-tolk/backend/internal/httpapi"
 	"github.com/Dewarrum/pocket-tolk/backend/internal/stt"
 	"github.com/Dewarrum/pocket-tolk/backend/internal/translate"
+	"github.com/Dewarrum/pocket-tolk/backend/internal/tts"
 )
 
 func main() {
@@ -30,6 +31,7 @@ func main() {
 		Handler: httpapi.New(cfg,
 			stt.New(cfg.STT, cfg.ProviderTimeout, log),
 			translate.New(cfg.Translate, cfg.ProviderTimeout, log),
+			tts.New(cfg.TTS, cfg.ProviderTimeout, log),
 			log),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       2 * time.Minute,
@@ -50,7 +52,8 @@ func main() {
 	}()
 
 	log.Info("listening", "port", cfg.Port, "sttModel", cfg.STT.Model,
-		"translateModel", cfg.Translate.Model, "translateFallbackModel", cfg.Translate.FallbackModel)
+		"translateModel", cfg.Translate.Model, "translateFallbackModel", cfg.Translate.FallbackModel,
+		"translateReasoningEffort", cfg.Translate.ReasoningEffort, "ttsModel", cfg.TTS.Model)
 	if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 		log.Error("server stopped", "error", err.Error())
 		os.Exit(1)

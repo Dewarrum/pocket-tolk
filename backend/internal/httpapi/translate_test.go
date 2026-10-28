@@ -98,7 +98,8 @@ func TestTranslate(t *testing.T) {
 		}
 
 		call := calls()[0]
-		if call.Model != "primary-test" || call.auth != "Bearer "+translateKey || call.Reasoning.Effort != "minimal" {
+		// The reasoning effort is the configured one, not a built-in default.
+		if call.Model != "primary-test" || call.auth != "Bearer "+translateKey || call.Reasoning.Effort != "none" {
 			t.Errorf("model %q, auth %q, reasoning %q", call.Model, call.auth, call.Reasoning.Effort)
 		}
 		if f := call.ResponseFormat; f.Type != "json_schema" || !f.JSONSchema.Strict ||

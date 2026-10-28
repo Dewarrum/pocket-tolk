@@ -16,6 +16,7 @@ type Config struct {
 	MaxUploadBytes  int64
 	STT             STT
 	Translate       Translate
+	TTS             TTS
 }
 
 type STT struct {
@@ -30,6 +31,14 @@ type Translate struct {
 	Model         string
 	FallbackModel string
 	ContextTurns  int
+	// ReasoningEffort is sent as OpenRouter's reasoning.effort.
+	ReasoningEffort string
+}
+
+type TTS struct {
+	BaseURL string
+	APIKey  string
+	Model   string
 }
 
 // Load builds a Config from getenv, applying defaults. It reports every
@@ -72,11 +81,17 @@ func Load(getenv func(string) string) (Config, error) {
 			Model:   optional("STT_MODEL", "whisper-large-v3-turbo"),
 		},
 		Translate: Translate{
-			BaseURL:       strings.TrimRight(optional("TRANSLATE_BASE_URL", "https://openrouter.ai/api/v1"), "/"),
-			APIKey:        required("TRANSLATE_API_KEY"),
-			Model:         optional("TRANSLATE_MODEL", "openai/gpt-6-luna"),
-			FallbackModel: optional("TRANSLATE_FALLBACK_MODEL", "anthropic/claude-haiku-5.5"),
-			ContextTurns:  positiveInt("TRANSLATE_CONTEXT_TURNS", 10),
+			BaseURL:         strings.TrimRight(optional("TRANSLATE_BASE_URL", "https://openrouter.ai/api/v1"), "/"),
+			APIKey:          required("TRANSLATE_API_KEY"),
+			Model:           optional("TRANSLATE_MODEL", "openai/gpt-6-luna"),
+			FallbackModel:   optional("TRANSLATE_FALLBACK_MODEL", "anthropic/claude-haiku-5.5"),
+			ContextTurns:    positiveInt("TRANSLATE_CONTEXT_TURNS", 10),
+			ReasoningEffort: optional("TRANSLATE_REASONING_EFFORT", "minimal"),
+		},
+		TTS: TTS{
+			BaseURL: strings.TrimRight(optional("TTS_BASE_URL", "https://api.cartesia.ai"), "/"),
+			APIKey:  required("TTS_API_KEY"),
+			Model:   optional("TTS_MODEL", "sonic-3.6"),
 		},
 	}
 
