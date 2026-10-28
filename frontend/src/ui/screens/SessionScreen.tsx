@@ -9,6 +9,9 @@ import {
   RotateCcw,
   RotateCw,
   Send,
+  Smartphone,
+  Square,
+  Volume2,
 } from 'lucide-react'
 import { useReducedMotion } from 'motion/react'
 import { toast } from 'sonner'
@@ -17,7 +20,7 @@ import { MAX_CLIP_MS, RecorderError } from '@/core/recorder'
 import { guessLanguage } from '@/core/script'
 import { historyBefore, type Session, type Turn } from '@/core/store'
 import { hintFor, initialTurn, transition, type TurnEvent } from '@/core/turnMachine'
-import { api, languageFor, store } from '@/ui/client'
+import { api, languageFor, speaker, store } from '@/ui/client'
 import { ConfirmDialog } from '@/ui/ConfirmDialog'
 import { cn } from '@/ui/lib/utils'
 import { Button } from '@/ui/primitives/button'
@@ -27,6 +30,7 @@ import { RecordButton, type RecordMode } from '@/ui/RecordButton'
 import { Screen } from '@/ui/Screen'
 import { useLanguageTable } from '@/ui/useLanguageTable'
 import { useRecorder } from '@/ui/useRecorder'
+import { useSpeech, type Fallback } from '@/ui/useSpeech'
 import { formatElapsed, voiceDot, voiceRule, voiceText, type Voice } from '@/ui/voice'
 
 export function SessionScreen({
@@ -46,6 +50,7 @@ export function SessionScreen({
   const { turns, latest, save } = useTurns(session.id)
   const sttModel = useRef<string | null>(null)
   const recorder = useRecorder()
+  const speech = useSpeech(onUnauthorized)
   const [starting, setStarting] = useState(false)
   const [confirmLeave, setConfirmLeave] = useState(false)
   const reduceMotion = useReducedMotion()
@@ -103,6 +108,29 @@ export function SessionScreen({
     return () => abort.abort()
   }, [turn, codes, latest, save, onUnauthorized])
 
+  // The server voice; when it fails, the device's own voice takes over.
+  const { say } = speech
+  useEffect(() => {
+    if (turn.status !== 'speaking' && !(turn.status === 'failed' && turn.stage === 'speak')) return
+    const stored = latest.current.find((t) => t.id === turn.turnId)
+    if (!stored) return
+    const abort = new AbortController()
+    if (turn.status === 'speaking') {
+      say(stored, 'server', abort.signal)
+        .then(() => {
+          if (!abort.signal.aborted) dispatch({ type: 'spoken' })
+        })
+        .catch((err: unknown) => {
+          if (abort.signal.aborted) return
+          if (err instanceof ApiError && err.code === 'unauthorized') return onUnauthorized()
+          dispatch({ type: 'speechFailed', error: err instanceof ApiError ? err.code : String(err) })
+        })
+    } else {
+      say(stored, 'device', abort.signal).catch(() => {})
+    }
+    return () => abort.abort()
+  }, [turn, latest, say, onUnauthorized])
+
   // New words appear at the bottom, just above the dock. Opening a
   // conversation jumps there; later changes scroll there.
   const opened = useRef(false)
@@ -117,6 +145,8 @@ export function SessionScreen({
   // refused microphone never discards text.
   async function record(event: Extract<TurnEvent['type'], 'record' | 'recordAgain' | 'addMore'>) {
     if (starting) return
+    // The microphone should not hear the translation.
+    speech.stop()
     setStarting(true)
     try {
       await recorder.start((clip) => {
@@ -138,6 +168,8 @@ export function SessionScreen({
 
   function send() {
     if (turn.status !== 'review' || !turn.text.trim()) return
+    // Synchronously in the tap: iOS plays the translation later only on an unlocked element.
+    speaker.unlock()
     const stored: Turn = {
       id: crypto.randomUUID(),
       sessionId: session.id,
@@ -156,10 +188,11 @@ export function SessionScreen({
   }
 
   const canRetranslate =
-    turn.status === 'idle' || turn.status === 'done' || (turn.status === 'failed' && turn.stage === 'translate')
+    turn.status === 'idle' || turn.status === 'done' || (turn.status === 'failed' && turn.stage !== 'transcribe')
 
   function retranslate(failed: Turn) {
     if (!canRetranslate) return
+    speaker.unlock()
     save({ ...failed, status: 'translating', error: null })
     const current = turn.status === 'failed' && turn.stage === 'translate' && turn.turnId === failed.id
     dispatch(current ? { type: 'retry' } : { type: 'retranslate', turnId: failed.id, text: failed.sourceText })
@@ -341,6 +374,11 @@ export function SessionScreen({
                   pair={[you, they]}
                   canRetry={canRetranslate}
                   onRetry={() => retranslate(t)}
+                  speaking={speech.active?.turnId === t.id ? speech.active : null}
+                  fallback={speech.fallbacks[t.id]}
+                  canReplay={turn.status !== 'recording' && !starting}
+                  onReplay={() => speech.replay(t)}
+                  onStop={speech.stop}
                 />
               ))}
             </ol>
@@ -415,6 +453,11 @@ function TurnView({
   pair,
   canRetry,
   onRetry,
+  speaking,
+  fallback,
+  canReplay,
+  onReplay,
+  onStop,
 }: {
   turn: Turn
   latest: boolean
@@ -424,6 +467,12 @@ function TurnView({
   pair: readonly [Language, Language]
   canRetry: boolean
   onRetry: () => void
+  /** Set while this turn's translation is being spoken; loading until its audio arrives. */
+  speaking: { loading: boolean } | null
+  fallback: Fallback | undefined
+  canReplay: boolean
+  onReplay: () => void
+  onStop: () => void
 }) {
   const voice = voiceOf(sourceLang)
   const detected = turn.detectedLang && turn.detectedLang !== 'other' ? languageOf(turn.detectedLang) : null
@@ -462,13 +511,45 @@ function TurnView({
       </p>
 
       {turn.status === 'done' && turn.translation && (
-        <p
-          lang={turn.targetLang ?? ''}
-          dir="auto"
-          className={cn('speech whitespace-pre-wrap', latest ? 'text-4xl' : 'text-2xl')}
-        >
-          {turn.translation}
-        </p>
+        <>
+          <p
+            lang={turn.targetLang ?? ''}
+            dir="auto"
+            className={cn('speech whitespace-pre-wrap', latest ? 'text-4xl' : 'text-2xl')}
+          >
+            {turn.translation}
+          </p>
+          <div className="flex flex-wrap items-center gap-x-3">
+            {speaking ? (
+              <Button variant="ghost" className="-ml-4 text-base" onClick={onStop}>
+                {speaking.loading ? (
+                  <Loader2 aria-hidden data-icon="inline-start" className="animate-spin motion-reduce:animate-none" />
+                ) : (
+                  <Square aria-hidden data-icon="inline-start" />
+                )}
+                Stop
+              </Button>
+            ) : (
+              <Button variant="ghost" className="-ml-4 text-base text-slate" onClick={onReplay} disabled={!canReplay}>
+                <Volume2 aria-hidden data-icon="inline-start" /> Replay
+              </Button>
+            )}
+            {fallback === 'device' && (
+              <p className="flex items-center gap-1.5 text-sm text-slate">
+                <Smartphone aria-hidden className="size-4" /> Phone voice
+              </p>
+            )}
+            {fallback === 'none' && turn.targetLang && (
+              <p className="text-sm text-slate">
+                Not spoken: this phone has no{' '}
+                <span lang={turn.targetLang} className="speech">
+                  {languageOf(turn.targetLang).nativeName}
+                </span>{' '}
+                voice.
+              </p>
+            )}
+          </div>
+        </>
       )}
       {turn.status === 'translating' && (
         <p className="flex items-center gap-2 text-lg text-slate">

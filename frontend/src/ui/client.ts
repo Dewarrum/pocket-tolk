@@ -1,4 +1,5 @@
 import { createApiClient, type Language } from '@/core/api'
+import { createSpeaker } from '@/core/speaker'
 import { createStore } from '@/core/store'
 
 const TOKEN_KEY = 'pocket-tolk.token'
@@ -16,6 +17,9 @@ export const apiBaseUrl: string = import.meta.env.VITE_API_BASE_URL ?? ''
 export const api = createApiClient({ baseUrl: apiBaseUrl, getToken: tokenStore.get })
 
 export const store = createStore()
+
+/** One audio element for the whole app run: once a tap has unlocked it, iOS lets it play later. */
+export const speaker = createSpeaker()
 
 let languageTable: Promise<Language[]> | null = null
 

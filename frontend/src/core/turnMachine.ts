@@ -1,11 +1,14 @@
 // The life of one turn, as pure functions. Framework-free.
 //
-// idle → recording → transcribing → review → translating → done
+// idle → recording → transcribing → review → translating → speaking → done
 // review → recording(append) → transcribing(append) → review
 // transcribing → failed(transcribe) → retry | record again | back to the text
 // translating → failed(translate) → retry
-// done, failed(translate) → recording: the next turn; a failed turn stays in the list
-// idle, done, failed(translate) → translating: retranslate a failed turn from the list
+// speaking → failed(speak): the server voice failed and the device's own voice
+//   takes over. The translation stands, so it is settled like done.
+// speaking → recording: answering cuts the voice off
+// done, failed(translate | speak) → recording: the next turn; a failed turn stays in the list
+// idle, done, failed(translate | speak) → translating: retranslate a failed turn from the list
 //
 // `base` is the text a new clip will be appended to (Add more); null for a fresh clip.
 // `turnId` is the stored turn being translated; the caller stores it before `send`.
@@ -20,8 +23,8 @@ export type TurnState =
   | { status: 'failed'; stage: 'transcribe'; base: string | null; clip: Clip; error: string }
   | { status: 'translating'; turnId: string; text: string }
   | { status: 'failed'; stage: 'translate'; turnId: string; text: string; error: string }
-  // Declared for slice 3; nothing produces it yet.
   | { status: 'speaking'; turnId: string }
+  | { status: 'failed'; stage: 'speak'; turnId: string; error: string }
   | { status: 'done'; turnId: string }
 
 export type TurnEvent =
@@ -37,6 +40,8 @@ export type TurnEvent =
   | { type: 'send'; turnId: string }
   | { type: 'translated' }
   | { type: 'translationFailed'; error: string }
+  | { type: 'spoken' }
+  | { type: 'speechFailed'; error: string }
   | { type: 'retranslate'; turnId: string; text: string }
 
 export const initialTurn: TurnState = { status: 'idle' }
@@ -72,13 +77,25 @@ export function transition(state: TurnState, event: TurnEvent): TurnState {
       return state
 
     case 'translating':
-      if (event.type === 'translated') return { status: 'done', turnId: state.turnId }
+      if (event.type === 'translated') return { status: 'speaking', turnId: state.turnId }
       if (event.type === 'translationFailed') {
         return { status: 'failed', stage: 'translate', turnId: state.turnId, text: state.text, error: event.error }
       }
       return state
 
+    case 'speaking':
+      if (event.type === 'spoken') return { status: 'done', turnId: state.turnId }
+      if (event.type === 'speechFailed') return { status: 'failed', stage: 'speak', turnId: state.turnId, error: event.error }
+      if (event.type === 'record') return { status: 'recording', base: null }
+      return state
+
     case 'failed':
+      // Like done: the translation is shown and the next turn can start.
+      if (state.stage === 'speak') {
+        if (event.type === 'record') return { status: 'recording', base: null }
+        if (event.type === 'retranslate') return { status: 'translating', turnId: event.turnId, text: event.text }
+        return state
+      }
       if (state.stage === 'translate') {
         if (event.type === 'retry') return { status: 'translating', turnId: state.turnId, text: state.text }
         if (event.type === 'record') return { status: 'recording', base: null }

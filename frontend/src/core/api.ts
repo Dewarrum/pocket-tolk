@@ -41,6 +41,13 @@ export interface TranslateInput {
   signal?: AbortSignal
 }
 
+export interface SpeakInput {
+  text: string
+  /** The language of the text; its server voice speaks it. */
+  lang: string
+  signal?: AbortSignal
+}
+
 export interface TranscribeInput {
   audio: Blob
   languages: readonly [string, string]
@@ -73,7 +80,7 @@ export interface ApiClientOptions {
 export function createApiClient({ baseUrl = '', getToken, fetch: fetchImpl }: ApiClientOptions) {
   const doFetch = fetchImpl ?? globalThis.fetch.bind(globalThis)
 
-  async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  async function request<T>(path: string, init: RequestInit = {}, read = (res: Response) => res.json()): Promise<T> {
     const headers = new Headers(init.headers)
     const token = getToken()
     if (token) headers.set('Authorization', `Bearer ${token}`)
@@ -86,7 +93,7 @@ export function createApiClient({ baseUrl = '', getToken, fetch: fetchImpl }: Ap
       throw new ApiError(0, 'network_error', 'The server could not be reached.')
     }
     if (!res.ok) throw await toApiError(res)
-    return (await res.json()) as T
+    return (await read(res)) as T
   }
 
   return {
@@ -109,6 +116,15 @@ export function createApiClient({ baseUrl = '', getToken, fetch: fetchImpl }: Ap
         body: JSON.stringify({ languages, text, history }),
         signal,
       })
+    },
+
+    /** The text as mp3. A language without a server voice rejects with `no_voice`. */
+    speak({ text, lang, signal }: SpeakInput) {
+      return request<Blob>(
+        '/api/speak',
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, lang }), signal },
+        (res) => res.blob(),
+      )
     },
   }
 }
