@@ -13,8 +13,10 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'favicon.ico', 'apple-touch-icon-180x180.png'],
       manifest: {
+        id: '/',
         name: 'Pocket Tolk',
-        short_name: 'Tolk',
+        // Fits under a home-screen icon, so iOS and Android show the full name.
+        short_name: 'Pocket Tolk',
         description: 'Interpret a face-to-face conversation on one phone.',
         lang: 'en',
         start_url: '/',

@@ -37,15 +37,32 @@ describe('turnMachine', () => {
     expect(transition(failed, { type: 'cancel' })).toEqual({ status: 'review', text: 'kept' })
   })
 
-  it('sends the reviewed text, then lands in done or in a failure that retries the same turn', () => {
+  it('sends the reviewed text, then speaks it or lands in a failure that retries the same turn', () => {
     const translating = run({ status: 'review', text: ' Где она? ' }, { type: 'send', turnId: 't1' })
     expect(translating).toEqual({ status: 'translating', turnId: 't1', text: 'Где она?' })
-    expect(transition(translating, { type: 'translated' })).toEqual({ status: 'done', turnId: 't1' })
+    expect(transition(translating, { type: 'translated' })).toEqual({ status: 'speaking', turnId: 't1' })
 
     const failed = transition(translating, { type: 'translationFailed', error: 'down' })
     expect(failed).toEqual({ status: 'failed', stage: 'translate', turnId: 't1', text: 'Где она?', error: 'down' })
     expect(transition(failed, { type: 'retry' })).toEqual(translating)
     expect(transition(failed, { type: 'record' })).toEqual({ status: 'recording', base: null })
+  })
+
+  it('speaks the translation, and answering cuts the voice off', () => {
+    const speaking: TurnState = { status: 'speaking', turnId: 't1' }
+    expect(transition(speaking, { type: 'spoken' })).toEqual({ status: 'done', turnId: 't1' })
+    expect(transition(speaking, { type: 'record' })).toEqual({ status: 'recording', base: null })
+  })
+
+  it('a failed speak hands over to the device voice and leaves the turn translated', () => {
+    const failed = transition({ status: 'speaking', turnId: 't1' }, { type: 'speechFailed', error: 'no_voice' })
+    expect(failed).toEqual({ status: 'failed', stage: 'speak', turnId: 't1', error: 'no_voice' })
+    // Not a translation failure: nothing to retry, and the conversation goes on as after done.
+    expect(transition(failed, { type: 'retry' })).toBe(failed)
+    expect(transition(failed, { type: 'record' })).toEqual({ status: 'recording', base: null })
+    expect(transition(failed, { type: 'retranslate', turnId: 't0', text: 'old' })).toEqual({
+      status: 'translating', turnId: 't0', text: 'old',
+    })
   })
 
   it('retranslates an older failed turn only when nothing else is in flight', () => {

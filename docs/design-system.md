@@ -95,6 +95,24 @@ home                                   session with turns
 - While translating, the turn holds the only spinner; the record button dims and the hint says to wait.
 - The first screen asks for the "server password" and says the provider keys never leave the server, so it no longer reads like an API-key prompt.
 
+## Slice 3: speaking
+
+```
+translated turn                         phone voice / no voice
+┌────────────────────────────────────┐ ┌────────────────────────────────────┐
+│ ┃ ● Русский                         │ │ ┃ 唔好意思，請問呢度最近嘅藥房…      │
+│ ┃ Извините, где здесь аптека?       │ │ ┃ 🔈 Replay      📱 Phone voice      │
+│ ┃ 실례합니다, 약국이 어디예요?  Ink 36 │ │ ┃ 🔈 Replay                          │
+│ ┃ ◌ Stop  → ■ Stop  → 🔈 Replay      │ │ ┃ Not spoken: this phone has no      │
+└────────────────────────────────────┘ │ ┃ 粵語 voice.                         │
+                                       └────────────────────────────────────┘
+```
+
+- The translation speaks by itself after Send; nothing else on the screen moves. Under the translation a quiet ghost button carries the state: a spinner and Stop while the voice loads, a square and Stop while it plays, then Replay in Slate. It is the only control on a turn besides Retry, and it sits where the eye already is.
+- When the phone's own voice spoke instead of the server's, a Slate "Phone voice" marker with a phone icon sits beside Replay; when the phone has no voice for the language, one Slate line says so and names the language in its own script. Neither is an error: the translation is shown and the conversation goes on.
+- Pressing the record button while the translation is speaking stops the voice first, so the microphone does not hear it.
+- Home-screen icon: the full-bleed SVG tile without extra padding, so the two bubbles read at icon size.
+
 ## Principles
 
 1. Every control lives in the dock under the thumb; the space above is for words.
@@ -135,3 +153,10 @@ Slice 2, same viewport, light and dark:
 - While translating, the turn and the record strip both showed a spinner and "Translating…". The turn keeps the spinner (where the words will appear); the button now dims in place.
 - "Language not recognised" appeared twice on a turn, once as the language line and again under the translation. One marker now takes the language line's place.
 - Starting a conversation and going straight back left an empty row on the home list. Leaving a conversation without turns now drops it.
+
+Slice 3, same viewport, light and dark:
+
+- Replay in the button face's bold Ink at 18 px competed with the translation under it. It is now 16 px Slate; Stop, which only shows while the voice is active, stays Ink.
+- The Replay icon sat 8 px right of the text edge of the turn. The button now pulls its icon padding back so the icon lines up with the words.
+- In Chrome on macOS the first Korean device voice was Apple's novelty "Eddy" (the same Apple voice set ships on iOS); the plain voice (Yuna, Milena, Sinji) is now preferred.
+- The home-screen icon had the generator's 30 % padding on top of a full-bleed tile, so the bubbles looked small. The padding is gone.

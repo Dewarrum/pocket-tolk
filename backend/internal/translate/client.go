@@ -263,7 +263,7 @@ func (c *Client) call(ctx context.Context, model string, ch chat, accept func(st
 		Model:          model,
 		Messages:       ch.messages(),
 		ResponseFormat: ch.format,
-		Reasoning:      &reasoning{Effort: "minimal"},
+		Reasoning:      &reasoning{Effort: c.cfg.ReasoningEffort},
 	})
 	if err != nil {
 		return answer{}, err
